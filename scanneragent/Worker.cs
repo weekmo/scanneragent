@@ -17,6 +17,7 @@ namespace scanneragent
         private HttpListener? _listener;
         private string[] _prefixes = Array.Empty<string>();
         private long _maxRequestBodySize;
+        private string? _apiSecret;
 
         /// <summary>
         /// Initializes a new instance of the Worker class.
@@ -30,6 +31,13 @@ namespace scanneragent
             var section = _config.GetSection("HttpServer");
             _prefixes = section.GetSection("Prefixes").Get<string[]>() ?? new[] { "http://+:5000/" };
             _maxRequestBodySize = section.GetValue<long>("MaxRequestBodySize", 10 * 1024 * 1024); // Default to 10 MB
+            _apiSecret = section.GetValue<string?>("ApiSecret");
+            
+            if (string.IsNullOrWhiteSpace(_apiSecret))
+            {
+                _logger.LogError("API secret is not configured in appsettings.json. The application cannot start without a valid API secret.");
+                throw new InvalidOperationException("API secret is required. Please configure HttpServer:ApiSecret in appsettings.json.");
+            }
         }
 
         /// <summary>
@@ -105,7 +113,7 @@ namespace scanneragent
                 // Add CORS headers to allow cross-origin requests
                 res.AppendHeader("Access-Control-Allow-Origin", "*");
                 res.AppendHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-                res.AppendHeader("Access-Control-Allow-Headers", "Content-Type");
+                res.AppendHeader("Access-Control-Allow-Headers", "Content-Type, X-API-Secret");
 
                 // Handle CORS preflight requests
                 if (method == "OPTIONS")
@@ -125,6 +133,18 @@ namespace scanneragent
                 // Document scan endpoint
                 if (path.Equals("/scan", StringComparison.OrdinalIgnoreCase) && method == "POST")
                 {
+                    // Validate API secret if configured
+                    if (!string.IsNullOrWhiteSpace(_apiSecret))
+                    {
+                        var providedSecret = req.Headers["X-API-Secret"];
+                        if (string.IsNullOrWhiteSpace(providedSecret) || providedSecret != _apiSecret)
+                        {
+                            _logger.LogWarning("Unauthorized scan attempt from {RemoteEndPoint}", req.RemoteEndPoint);
+                            await SendJson(res, new { error = "Unauthorized. Valid API secret required." }, HttpStatusCode.Unauthorized);
+                            return;
+                        }
+                    }
+
                     // Validate request body size
                     if (req.ContentLength64 > 0 && req.ContentLength64 > _maxRequestBodySize)
                     {
