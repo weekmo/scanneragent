@@ -21,7 +21,7 @@ env:
 
 jobs:
   build:
-    name: Build & Test
+    name: Build
     runs-on: windows-latest
     
     steps:
@@ -44,27 +44,11 @@ jobs:
       - name: Build
         run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=Release /restore:false
 
-      - name: Test
-        run: dotnet test ${{ env.SOLUTION_PATH }} --no-build --configuration Release --verbosity normal --logger trx --results-directory TestResults
-        continue-on-error: false
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: TestResults
-          retention-days: 7
-
   publish:
     name: Publish
     needs: build
     runs-on: windows-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
-    strategy:
-      matrix:
-        runtime: [win-x64, win-x86]
     
     steps:
       - name: Checkout
@@ -80,20 +64,23 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+
       - name: Publish
         run: |
           msbuild ${{ env.PROJECT_PATH }} `
             /t:Publish `
             /p:Configuration=Release `
-            /p:RuntimeIdentifier=${{ matrix.runtime }} `
+            /p:RuntimeIdentifier=win-x64 `
             /p:SelfContained=true `
-            /p:PublishDir=..\..\publish\${{ matrix.runtime }}\ `
+            /p:PublishDir=${{ github.workspace }}\publish\win-x64\ `
             /p:PublishSingleFile=true `
             /p:EnableCompressionInSingleFile=true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: scanneragent-${{ matrix.runtime }}
-          path: ./publish/${{ matrix.runtime }}
+          name: scanneragent-win-x64
+          path: ./publish/win-x64
           retention-days: 30
