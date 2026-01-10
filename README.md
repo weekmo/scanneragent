@@ -1,3 +1,5 @@
+[![.NET CI/CD](https://github.com/weekmo/scanneragent/actions/workflows/dotnet-desktop.yml/badge.svg)](https://github.com/weekmo/scanneragent/actions/workflows/dotnet-desktop.yml)
+
 # Scanner Agent
 
 A .NET Worker Service that provides a RESTful API for document scanning via Windows Image Acquisition (WIA).

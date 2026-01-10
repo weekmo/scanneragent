@@ -34,8 +34,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-          cache: true  # Cache NuGet packages
-          cache-dependency-path: '**/packages.lock.json'
+          cache: true
 
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_PATH }}
@@ -76,7 +75,6 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
           cache: true
-          cache-dependency-path: '**/packages.lock.json'
 
       - name: Publish
         run: |
