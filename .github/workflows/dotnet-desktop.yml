@@ -35,11 +35,14 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_PATH }}
 
       - name: Build
-        run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore --configuration Release
+        run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=Release /restore:false
 
       - name: Test
         run: dotnet test ${{ env.SOLUTION_PATH }} --no-build --configuration Release --verbosity normal --logger trx --results-directory TestResults
@@ -74,15 +77,19 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
       - name: Publish
         run: |
-          dotnet publish ${{ env.PROJECT_PATH }} `
-            --configuration Release `
-            --runtime ${{ matrix.runtime }} `
-            --self-contained true `
-            --output ./publish/${{ matrix.runtime }} `
-            -p:PublishSingleFile=true `
-            -p:EnableCompressionInSingleFile=true
+          msbuild ${{ env.PROJECT_PATH }} `
+            /t:Publish `
+            /p:Configuration=Release `
+            /p:RuntimeIdentifier=${{ matrix.runtime }} `
+            /p:SelfContained=true `
+            /p:PublishDir=..\..\publish\${{ matrix.runtime }}\ `
+            /p:PublishSingleFile=true `
+            /p:EnableCompressionInSingleFile=true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
