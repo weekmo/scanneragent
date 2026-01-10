@@ -66,13 +66,9 @@ dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
 
 Run all commands in an elevated (Administrator) PowerShell or Command Prompt.
 
-### Step 1: Publish the Application
+### Step 1: Download the Release
 
-First, publish the application as a self-contained executable:
-
-```
-dotnet publish -c Release -r win-x64 --self-contained true -o C:\Services\ScannerAgent
-```
+Download the latest release from the [Releases page](https://github.com/weekmo/scanneragent/releases). Extract the zip file to your desired installation directory (e.g., `C:\Services\ScannerAgent`).
 
 ### Step 2: Create the Windows Service
 
