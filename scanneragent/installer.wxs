@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" 
+           Name="Scanner Agent" 
+           Language="1033" 
+           Version="1.0.0.0" 
+           Manufacturer="Your Company Name" 
+           UpgradeCode="12345678-1234-1234-1234-123456789012">
+    
+    <Package InstallerVersion="200" 
+             Compressed="yes" 
+             InstallScope="perMachine" 
+             Platform="x64" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Scanner Agent is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ProductFeature" Title="Scanner Agent" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="ScannerAgent" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Scanner Agent"/>
+      </Directory>
+    </Directory>
+
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="ScannerAgentExe" Guid="*" Win64="yes">
+        <File Id="ScannerAgentExe" Source="$(var.PublishDir)\scanneragent.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="AppSettings" Guid="*" Win64="yes">
+        <File Id="AppSettingsJson" Source="$(var.PublishDir)\appsettings.json" />
+      </Component>
+    </ComponentGroup>
+
+  </Product>
+</Wix>
