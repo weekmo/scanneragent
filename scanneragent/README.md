@@ -1,173 +1,25 @@
+[![.NET CI/CD](https://github.com/weekmo/scanneragent/actions/workflows/dotnet-desktop.yml/badge.svg)](https://github.com/weekmo/scanneragent/actions/workflows/dotnet-desktop.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 # Scanner Agent
 
-A .NET Worker Service that provides a RESTful API for document scanning via Windows Image Acquisition (WIA).
+HTTP API service for document scanning via Windows Image Acquisition (WIA).
 
-## Overview
+## Installation
 
-Scanner Agent is a background service that hosts an HTTP server and exposes endpoints for scanning documents from connected WIA-compatible scanner devices. It handles scanner device enumeration, configuration, and image transfer with support for base64 encoding.
+Download the latest release from the [Releases](https://github.com/weekmo/scanneragent/releases) page.
 
-## Requirements
+Extract the archive to your preferred location (e.g., `C:\Services\ScannerAgent`).
 
-- .NET 10 or later
-- Windows operating system
-- WIA (Windows Image Acquisition) installed on the system
-- A WIA-compatible scanner device connected and properly installed
+### System Requirements
 
-## Building
+- **Windows 10/11/Server 2016+**: WIA is included by default
+- **Windows 7/8/Server 2012**: May require WIA 2.0 installation from Windows Update or manual download
+- WIA-compatible scanner device connected and installed
 
-```
-dotnet build
-```
+### Configuration
 
-## Running
-
-```
-dotnet run
-```
-
-The service will start listening on the URL specified in `appsettings.json`. Default: `http://+:5001/`
-
-## Publishing
-
-### Self-Contained Executable
-
-To create a self-contained executable that includes the .NET runtime:
-
-```
-dotnet publish -c Release -r win-x64 --self-contained true -o ./publish
-```
-
-This creates a standalone executable in the `./publish` directory that can run without .NET installed on the target machine.
-
-**Parameters:**
-- `-c Release`: Build in release configuration
-- `-r win-x64`: Target Windows x64 runtime
-- `--self-contained true`: Include .NET runtime in output
-- `-o ./publish`: Output directory
-
-**Alternative runtimes:**
-- `win-x64`: Windows 64-bit
-- `win-x86`: Windows 32-bit
-- `win-arm64`: Windows ARM 64-bit
-
-### Framework-Dependent Executable
-
-For smaller deployments where .NET is already installed:
-
-```
-dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
-```
-
-## Installing as a Windows Service
-
-### Prerequisites
-
-Run all commands in an elevated (Administrator) PowerShell or Command Prompt.
-
-### Step 1: Publish the Application
-
-First, publish the application as a self-contained executable:
-
-```
-dotnet publish -c Release -r win-x64 --self-contained true -o C:\Services\ScannerAgent
-```
-
-### Step 2: Create the Windows Service
-
-Use the `sc` command to create the service:
-
-```
-sc create ScannerAgent binPath= "C:\Services\ScannerAgent\scanneragent.exe" start= auto DisplayName= "Scanner Agent Service"
-```
-
-**Parameters:**
-- `binPath=`: Full path to the published executable (space after `=` is required)
-- `start=`: Service startup type (`auto`, `demand`, or `disabled`)
-- `DisplayName=`: Friendly name shown in Services console
-
-### Step 3: Configure Service Description (Optional)
-
-```
-sc description ScannerAgent "HTTP API service for document scanning via WIA"
-```
-
-### Step 4: Start the Service
-
-```
-sc start ScannerAgent
-```
-
-### Managing the Service
-
-**Check service status:**
-```
-sc query ScannerAgent
-```
-
-**Stop the service:**
-```
-sc stop ScannerAgent
-```
-
-**Restart the service:**
-```
-sc stop ScannerAgent
-sc start ScannerAgent
-```
-
-**Delete the service:**
-```
-sc stop ScannerAgent
-sc delete ScannerAgent
-```
-
-### Alternative: Using PowerShell
-
-Create and start the service using PowerShell:
-
-```powershell
-New-Service -Name "ScannerAgent" -BinaryPathName "C:\Services\ScannerAgent\scanneragent.exe" -DisplayName "Scanner Agent Service" -Description "HTTP API service for document scanning via WIA" -StartupType Automatic
-
-Start-Service -Name "ScannerAgent"
-```
-
-**Verify service:**
-```powershell
-Get-Service -Name "ScannerAgent"
-```
-
-**Remove service:**
-```powershell
-Stop-Service -Name "ScannerAgent"
-Remove-Service -Name "ScannerAgent"
-```
-
-### Network Permissions
-
-If using `http://+:5001/` (listening on all interfaces), you may need to reserve the URL:
-
-```
-netsh http add urlacl url=http://+:5001/ user=BUILTIN\Users
-```
-
-Or grant permission to the service account (typically `NT AUTHORITY\SYSTEM` for services):
-
-```
-netsh http add urlacl url=http://+:5001/ user="NT AUTHORITY\SYSTEM"
-```
-
-### Viewing Service Logs
-
-When running as a Windows service, console output is not visible. Configure file logging or use Event Viewer to view logs. The service logs to the Application event log by default.
-
-To view in Event Viewer:
-1. Open Event Viewer (`eventvwr.msc`)
-2. Navigate to Windows Logs > Application
-3. Look for entries from source "scanneragent"
-
-## Configuration
-
-Configuration is managed through `appsettings.json`:
+Edit `appsettings.json`:
 
 ```json
 {
@@ -178,24 +30,76 @@ Configuration is managed through `appsettings.json`:
     }
   },
   "HttpServer": {
-    "Prefixes": [ "http://+:5001/" ],
+    "Prefixes": [ "http://127.0.0.1:5001/" ],
     "MaxRequestBodySize": 10485760,
-    "ContextAcceptTimeoutSeconds": 30
+    "ContextAcceptTimeoutSeconds": 30,
+    "ApiSecret": "your-secret-key-here"
   }
 }
 ```
 
-### Configuration Options
+**Required:** Set a unique value for `ApiSecret`. The application will not start without it.
 
-- **Prefixes**: Array of HTTP listener prefixes. Use `http://+:PORT/` for any interface or `http://localhost:PORT/` for localhost only
-- **MaxRequestBodySize**: Maximum allowed request body size in bytes (default: 10 MB)
-- **ContextAcceptTimeoutSeconds**: Timeout for accepting HTTP contexts
+**Configuration options:**
+- **Prefixes**: Listener address. Use `http://127.0.0.1:PORT/` or `http://localhost:PORT/`. Do not use `http://+:PORT/`.
+- **MaxRequestBodySize**: Maximum request size in bytes (10485760 = 10 MB)
+- **ContextAcceptTimeoutSeconds**: HTTP context timeout
+- **ApiSecret**: Authentication secret for `/scan` endpoint (required)
 
-## API Endpoints
+### Running the Service
+
+#### Option 1: Run Directly
+
+Double-click `scanneragent.exe` or run from command line:
+
+```
+scanneragent.exe
+```
+
+The service listens on `http://127.0.0.1:5001/` by default.
+
+#### Option 2: Install as Windows Service
+
+Run commands in Administrator PowerShell or Command Prompt.
+
+**Note:** Replace `C:\Services\ScannerAgent\scanneragent.exe` with your actual installation path.
+
+**Create service:**
+```
+sc create ScannerAgent binPath= "C:\Services\ScannerAgent\scanneragent.exe" start= auto DisplayName= "Scanner Agent Service"
+sc description ScannerAgent "HTTP API service for document scanning via WIA"
+```
+
+**Start service:**
+```
+sc start ScannerAgent
+```
+
+**Manage service:**
+```
+sc query ScannerAgent
+sc stop ScannerAgent
+sc delete ScannerAgent
+```
+
+**Using PowerShell (optional alternative):**
+```powershell
+New-Service -Name "ScannerAgent" -BinaryPathName "C:\Services\ScannerAgent\scanneragent.exe" -DisplayName "Scanner Agent Service" -Description "HTTP API service for document scanning via WIA" -StartupType Automatic
+Start-Service -Name "ScannerAgent"
+```
+
+**View logs:**
+
+When running as a service, logs are in the Windows Application event log:
+1. Open Event Viewer (`eventvwr.msc`)
+2. Navigate to Windows Logs > Application
+3. Filter by source "scanneragent"
+
+## API Usage
 
 ### GET /health
 
-Returns the health status of the service.
+Check service status.
 
 **Response:**
 ```json
@@ -206,76 +110,161 @@ Returns the health status of the service.
 
 ### POST /scan
 
-Initiates a document scan from the connected scanner and returns the scanned image.
+Scan a document and return base64-encoded PNG image.
 
-**Response:**
+**Headers:**
+```
+X-API-Secret: your-secret-key-here
+```
+
+**Response (200):**
 ```json
 {
-  "image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "image": "iVBORw0KGgoAAAANSUhEUg...",
   "format": "png"
 }
 ```
 
-The `image` field contains the scanned document as a base64-encoded PNG image.
+**Response (401):**
+```json
+{
+  "error": "Unauthorized. Valid API secret required."
+}
+```
 
-**Error Response (if scanner unavailable):**
+**Response (503):**
 ```json
 {
   "error": "No WIA devices found. Please ensure a scanner is connected and installed."
 }
 ```
 
-### CORS
+### Examples
 
-All endpoints support CORS requests. CORS headers are automatically added to all responses.
+**cURL:**
+```bash
+curl -X POST http://localhost:5001/scan \
+  -H "X-API-Secret: your-secret-key-here"
+```
+
+**JavaScript:**
+```javascript
+fetch('http://localhost:5001/scan', {
+  method: 'POST',
+  headers: { 'X-API-Secret': 'your-secret-key-here' }
+})
+.then(response => response.json())
+.then(data => console.log('Image:', data.image));
+```
+
+**Python:**
+```python
+import requests
+
+response = requests.post(
+    'http://localhost:5001/scan',
+    headers={'X-API-Secret': 'your-secret-key-here'}
+)
+
+if response.status_code == 200:
+    data = response.json()
+    print(f"Scanned image: {data['image'][:50]}...")
+else:
+    print(f"Error: {response.json()['error']}")
+```
+
+**C#:**
+```csharp
+using var client = new HttpClient();
+client.DefaultRequestHeaders.Add("X-API-Secret", "your-secret-key-here");
+var response = await client.PostAsync("http://localhost:5001/scan", null);
+var content = await response.Content.ReadAsStringAsync();
+```
+
+### Example Application
+
+See [Local Scanner Web App](https://github.com/weekmo/localscanner) for a complete web application integration example.
 
 ## Technical Details
 
-### Threading Model
+- **Threading**: Scanning runs on STA thread (required for WIA COM)
+- **Resolution**: 300 DPI (horizontal and vertical)
+- **Format**: PNG, base64-encoded
+- **Timeout**: 5 minutes per scan operation
+- **CORS**: Enabled for all origins
 
-The scanning operation runs on a dedicated Single-Threaded Apartment (STA) thread, which is required for WIA COM interop. This ensures proper initialization of COM objects.
+---
 
-### Scanner Properties
+## Development
 
-The service configures the following scanner properties before scanning:
-- Horizontal Resolution: 300 DPI
-- Vertical Resolution: 300 DPI
-- Current Intent: Document scanning intent flag
+### Requirements
 
-### Image Format
+- .NET 10 SDK
+- Windows
 
-Scanned images are returned in PNG format and encoded as base64 strings for HTTP transmission.
+### Build
 
-### Error Handling
+```
+dotnet build
+```
 
-The service handles various error scenarios:
-- WIA not installed on the system
-- No scanner devices detected
-- Scanner connection failures
-- Timeout during scan operation (5-minute limit)
-- Request body exceeds size limit
-- COM interop exceptions
+### Run (Development)
 
-Detailed error messages are logged and returned to the client.
+```
+dotnet run
+```
 
-## Logging
+Service listens on `http://127.0.0.1:5001/` by default. Edit `appsettings.json` to change configuration.
 
-The service uses structured logging via Microsoft.Extensions.Logging. Log messages include:
-- HTTP server startup and listener initialization
-- Device enumeration and connection status
-- Scanner property configuration
-- Image transfer progress
-- Errors and warnings with context
+### Publish
 
-Configure logging levels in `appsettings.json` under the `Logging` section.
+**Self-contained (includes .NET runtime):**
+```
+dotnet publish -c Release -r win-x64 --self-contained true -o ./publish
+```
 
-## Project Structure
+**Framework-dependent (requires .NET installed):**
+```
+dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
+```
 
-- `Program.cs`: Application entry point and dependency injection setup
-- `Worker.cs`: Main background service implementing the HTTP server and scanning logic
-- `appsettings.json`: Configuration file
+**Target platforms:**
+- `win-x64`: Windows 64-bit (most common)
+- `win-x86`: Windows 32-bit (optional, for older systems)
+- `win-arm64`: Windows ARM 64-bit (optional, for ARM devices)
 
-## Dependencies
+### Project Structure
+
+- `Program.cs`: Application entry point
+- `Worker.cs`: HTTP server and scanning logic
+- `appsettings.json`: Configuration
+
+### Dependencies
 
 - Microsoft.Extensions.Hosting 10.0.1
-- WIA (Windows Image Acquisition) COM library
+- WIA COM library
+
+## Contributing
+
+Contributions are welcome! To contribute:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Commit your changes (`git commit -am 'Add new feature'`)
+4. Push to the branch (`git push origin feature/your-feature`)
+5. Open a Pull Request
+
+Please ensure:
+- Code follows existing style and conventions
+- Changes are tested on Windows with a WIA scanner
+- Commit messages are clear and descriptive
+
+## Support
+
+If you find this project useful, consider supporting its development:
+
+[![Sponsor](https://img.shields.io/badge/Sponsor-?-red?style=for-the-badge)](https://github.com/sponsors/weekmo)
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
